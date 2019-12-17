@@ -38,6 +38,11 @@
 
 #define AL3320A_GAIN_SHIFT		1
 #define AL3320A_GAIN_MASK		(BIT(2) | BIT(1))
+#define AL3320A_GAIN_READ(g) \
+	(((g) & AL3320A_GAIN_MASK) >> AL3320A_GAIN_SHIFT)
+#define AL3320A_GAIN_WRITE(g) \
+	(((g) << AL3320A_GAIN_SHIFT) & AL3320A_GAIN_MASK)
+
 
 /* chip params default values */
 #define AL3320A_DEFAULT_MEAN_TIME	4
@@ -90,7 +95,7 @@ static int al3320a_init(struct al3320a_data *data)
 		return ret;
 
 	ret = i2c_smbus_write_byte_data(data->client, AL3320A_REG_CONFIG_RANGE,
-					AL3320A_RANGE_3 << AL3320A_GAIN_SHIFT);
+					AL3320A_GAIN_WRITE(AL3320A_RANGE_3));
 	if (ret < 0)
 		return ret;
 
@@ -133,7 +138,7 @@ static int al3320a_read_raw(struct iio_dev *indio_dev,
 		if (ret < 0)
 			return ret;
 
-		ret = (ret & AL3320A_GAIN_MASK) >> AL3320A_GAIN_SHIFT;
+		ret = AL3320A_GAIN_READ(ret);
 		*val = al3320a_scales[ret][0];
 		*val2 = al3320a_scales[ret][1];
 
@@ -152,11 +157,13 @@ static int al3320a_write_raw(struct iio_dev *indio_dev,
 	switch (mask) {
 	case IIO_CHAN_INFO_SCALE:
 		for (i = 0; i < ARRAY_SIZE(al3320a_scales); i++) {
-			if (val == al3320a_scales[i][0] &&
-			    val2 == al3320a_scales[i][1])
-				return i2c_smbus_write_byte_data(data->client,
-					AL3320A_REG_CONFIG_RANGE,
-					i << AL3320A_GAIN_SHIFT);
+			if (val != al3320a_scales[i][0] ||
+			    val2 != al3320a_scales[i][1])
+				continue;
+
+			return i2c_smbus_write_byte_data(data->client,
+						AL3320A_REG_CONFIG_RANGE,
+						AL3320A_GAIN_WRITE(i));
 		}
 		break;
 	}
