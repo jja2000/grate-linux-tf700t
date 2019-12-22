@@ -109,6 +109,7 @@ int tegra_output_probe(struct tegra_output *output)
 		if (IS_ERR(output->panel))
 			return PTR_ERR(output->panel);
 
+		of_drm_get_panel_orientation(panel, &output->panel->orientation);
 		of_node_put(panel);
 	}
 
@@ -212,6 +213,10 @@ int tegra_output_init(struct drm_device *drm, struct tegra_output *output)
 		if (!output->cec)
 			return -ENOMEM;
 	}
+
+	err = drm_connector_init_panel_orientation_property(&output->connector);
+	if (err)
+		DRM_ERROR("failed to initialize panel orientation: %d\n", err);
 
 	return 0;
 }
