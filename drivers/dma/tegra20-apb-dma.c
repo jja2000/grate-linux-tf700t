@@ -1429,13 +1429,15 @@ static int tegra_dma_probe(struct platform_device *pdev)
 	spin_lock_init(&tdma->global_lock);
 
 	pm_runtime_enable(&pdev->dev);
-	if (!pm_runtime_enabled(&pdev->dev))
+	if (!pm_runtime_enabled(&pdev->dev)) {
 		ret = tegra_dma_runtime_resume(&pdev->dev);
-	else
+		if (ret)
+			return ret;
+	} else {
 		ret = pm_runtime_get_sync(&pdev->dev);
-
-	if (ret < 0)
-		goto err_pm_disable;
+		if (ret < 0)
+			goto err_pm_disable;
+	}
 
 	/* Reset DMA controller */
 	reset_control_assert(tdma->rst);
@@ -1545,9 +1547,10 @@ err_unregister_dma_dev:
 	dma_async_device_unregister(&tdma->dma_dev);
 
 err_pm_disable:
-	pm_runtime_disable(&pdev->dev);
-	if (!pm_runtime_status_suspended(&pdev->dev))
+	if (!pm_runtime_enabled(&pdev->dev))
 		tegra_dma_runtime_suspend(&pdev->dev);
+	else
+		pm_runtime_disable(&pdev->dev);
 
 	return ret;
 }
@@ -1558,9 +1561,10 @@ static int tegra_dma_remove(struct platform_device *pdev)
 
 	dma_async_device_unregister(&tdma->dma_dev);
 
-	pm_runtime_disable(&pdev->dev);
-	if (!pm_runtime_status_suspended(&pdev->dev))
+	if (!pm_runtime_enabled(&pdev->dev))
 		tegra_dma_runtime_suspend(&pdev->dev);
+	else
+		pm_runtime_disable(&pdev->dev);
 
 	return 0;
 }
